@@ -1,0 +1,33 @@
+{
+  "version": "Contact Form 7 SWV Schema 2024-10",
+  "locale": "en_US",
+  "rules": [
+    {
+      "rule": "required",
+      "field": "you-name",
+      "error": "Please fill out this field."
+    },
+    {
+      "rule": "maxlength",
+      "field": "you-name",
+      "threshold": 400,
+      "error": "This field has a too long input."
+    },
+    {
+      "rule": "required",
+      "field": "email",
+      "error": "Please fill out this field."
+    },
+    {
+      "rule": "email",
+      "field": "email",
+      "error": "Please enter an email address."
+    },
+    {
+      "rule": "maxlength",
+      "field": "email",
+      "threshold": 400,
+      "error": "This field has a too long input."
+    }
+  ]
+}

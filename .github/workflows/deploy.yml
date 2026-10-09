@@ -1,0 +1,81 @@
+# CI & Deploy - Vorlage von CogniCore (Adrian), Quelle: _originale/GithubAction.txt.
+# Gehoert in jedes Repo, das automatisch deployen soll, unter: .github/workflows/deploy.yml
+# Gegenueber der PDF-Kopie: Einrueckung wiederhergestellt, eingestreute Seitenfusszeile entfernt.
+# Voraussetzungen (Repo, GitHub-Variablen/Secrets, Server): siehe INDEX.md, Abschnitt "Pro App".
+name: CI & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # manueller Re-Deploy: Actions → CI & Deploy → Run workflow
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm # braucht package-lock.json im Repo
+      - name: Install
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Formatierung
+        run: npx prettier --check .
+      - name: Dependency-Audit
+        run: npm audit --omit=dev --audit-level=high
+      - name: Tests
+        run: npm test
+      - name: Build
+        run: npm run build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release
+          path: |
+            dist/
+            package.json
+            package-lock.json
+          include-hidden-files: true # sonst fehlen z. B. .well-known/ oder .htaccess
+          retention-days: 7
+
+  deploy:
+    needs: checks
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency: # nur der Deploy wird serialisiert, nicht die Checks
+      group: deploy-${{ vars.APP_NAME }}
+      cancel-in-progress: false # ein laufender Deploy wird nie abgebrochen
+    env:
+      TARGET: ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}
+      # eindeutiger Ordner je Lauf – auch ein Re-Deploy derselben SHA schreibt nie ins laufende Release
+      RELEASE: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: release/
+      - name: SSH einrichten
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: Release hochladen
+        run: |
+          ssh "$TARGET" "mkdir -p '${{ vars.APP_DIR }}/releases/$RELEASE'"
+          rsync -az release/ "$TARGET:${{ vars.APP_DIR }}/releases/$RELEASE/"
+      - name: Aktivieren (Health-Check, bei Fehler automatischer Rollback)
+        run: ssh "$TARGET" "/usr/local/bin/activate-${{ vars.APP_NAME }} '$RELEASE'"
+      - name: SSH-Key entfernen
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519

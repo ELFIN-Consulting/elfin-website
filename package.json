@@ -1,0 +1,25 @@
+{
+  "name": "elfin-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "elfin-consulting.com als statische Seite mit kleinem Node-Server für Formulare",
+  "type": "module",
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "dev": "node src/server.js",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "node --test",
+    "build": "node scripts/build.js",
+    "start": "node dist/server.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.9"
+  }
+}
