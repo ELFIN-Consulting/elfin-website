@@ -7,6 +7,8 @@ import { stat } from "node:fs/promises";
 import { extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { handleForm, isFormRequest } from "./forms.js";
+import { KUNUNU_PATH, kununuBadge } from "./kununu.js";
+import { renderSearch } from "./search.js";
 
 // Im Build liegt die Seite in dist/public/, beim Entwickeln direkt in site/
 const BUILT = fileURLToPath(new URL("./public/", import.meta.url));
@@ -128,6 +130,32 @@ export function createApp({ publicDir = DEFAULT_PUBLIC_DIR } = {}) {
       }
       if (req.method !== "GET" && req.method !== "HEAD") {
         return send(res, 405, "Methode nicht erlaubt", { allow: "GET, HEAD" });
+      }
+      // Suchfeld auf /insights/ schickt wie bei WordPress an die Startseite der Sprache
+      if (
+        (pathname === "/" || pathname === "/de/") &&
+        url.searchParams.has("s")
+      ) {
+        const lang = pathname === "/de/" ? "de" : "en";
+        const html = await renderSearch(
+          publicDir,
+          lang,
+          url.searchParams.get("s"),
+        );
+        return send(res, 200, req.method === "HEAD" ? "" : html, {
+          "content-type": TYPES[".html"],
+          "cache-control": "no-cache",
+        });
+      }
+      if (pathname === KUNUNU_PATH) {
+        const svg = await kununuBadge(join(publicDir, "kununu-badge.svg"));
+        return send(res, 200, req.method === "HEAD" ? "" : svg, {
+          "content-type": TYPES[".svg"],
+          "cache-control": "public, max-age=86400",
+          // fremdes SVG: direkt geöffnet darf es nichts ausführen oder nachladen
+          "content-security-policy":
+            "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+        });
       }
 
       const hit = await resolveFile(publicDir, pathname);

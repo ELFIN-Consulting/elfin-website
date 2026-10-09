@@ -14,6 +14,7 @@ let stateDir;
 before(async () => {
   stateDir = await mkdtemp(join(tmpdir(), "elfin-website-"));
   process.env.STATE_DIRECTORY = stateDir;
+  process.env.KUNUNU_BADGE_URL = ""; // Tests ohne Netz: Siegel aus site/
   server = createApp({ publicDir: SITE });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   base = `http://127.0.0.1:${server.address().port}`;
@@ -142,4 +143,39 @@ test("EcoVadis-Formular (Contact Form 7) im CF7-Antwortformat", async () => {
   const ok = await (await get(url, { method: "POST", body: form })).json();
   assert.equal(ok.status, "mail_sent");
   assert.equal(ok.into, "#wpcf7-f4662-p4497-o1");
+});
+
+test("Suche wie WordPress: Treffer je Sprache, Seite ohne Treffer", async () => {
+  const en = await (await get("/?s=EcoVadis")).text();
+  assert.match(en, /\d+ search results? for: EcoVadis/);
+  assert.match(en, /href='\/focus\/ecovadis\/'/);
+  assert.match(en, /<input type="search" id="s" name="s" value="EcoVadis"/);
+  assert.doesNotMatch(en, /href='\/de\/[^']*' itemprop="headline"/);
+
+  const de = await (await get("/de/?s=EcoVadis")).text();
+  assert.match(de, /Suchergebnis(se)? für: EcoVadis/);
+  assert.match(de, /href='\/de\/ecovadis\/'/);
+
+  const none = await (await get("/?s=xyzqqq")).text();
+  assert.match(none, /Nothing Found/);
+  assert.match(none, /search-no-results/);
+});
+
+test("Suchbegriff wird maskiert", async () => {
+  const html = await (
+    await get(`/?s=${encodeURIComponent('<script>alert(1)</script>"')}`)
+  ).text();
+  assert.doesNotMatch(html, /<script>alert/);
+  assert.doesNotMatch(html, /\{\{\w+\}\}/);
+});
+
+test("kununu-Siegel kommt vom eigenen Server", async () => {
+  const page = await (await get("/career/")).text();
+  assert.match(page, /src="\/kununu-badge\.svg"/);
+  assert.doesNotMatch(page, /<img[^>]+widgets\.kununu\.com/);
+  const res = await get("/kununu-badge.svg");
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type"), /image\/svg\+xml/);
+  assert.match(res.headers.get("content-security-policy"), /sandbox/);
+  assert.match(await res.text(), /<svg/);
 });

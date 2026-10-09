@@ -2,3 +2,4 @@ dist/
 site/
 var/
 package-lock.json
+src/templates/
