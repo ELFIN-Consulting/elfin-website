@@ -5,10 +5,11 @@
 // Beide Front-ends bleiben unverändert; der Server antwortet im jeweils erwarteten Format.
 //
 // Einsendungen werden in $STATE_DIRECTORY/submissions.jsonl gespeichert (systemd: /var/lib/<app>).
-// Mailversand (Microsoft 365) ist noch nicht eingerichtet; Empfänger kommt aus FORM_RECIPIENT.
+// Danach gehen sie per Microsoft 365 an FORM_RECIPIENT (mail.js), sobald das eingerichtet ist.
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
+import { sendSubmission } from "./mail.js";
 
 const MAX_BODY = 32 * 1024;
 const CF7_PREFIX = "/wp-json/contact-form-7/v1/contact-forms/";
@@ -260,10 +261,18 @@ async function store(entry) {
       mode: 0o600,
     },
   );
-  // Keine personenbezogenen Daten ins Log
-  const to = process.env.FORM_RECIPIENT ?? "(kein FORM_RECIPIENT gesetzt)";
-  console.log(
-    `Formular "${entry.form}" von ${entry.page} gespeichert. Mailversand an ${to} noch nicht eingerichtet.`,
+  // Versand im Hintergrund: die Antwort an den Browser wartet nicht auf Microsoft,
+  // und submissions.jsonl bleibt die Sicherung, falls der Versand scheitert.
+  // Keine personenbezogenen Daten ins Log.
+  sendSubmission(record).then(
+    (sent) =>
+      console.log(
+        `Formular "${entry.form}" von ${entry.page} gespeichert${sent ? " und per Mail weitergeleitet" : ", Mailversand nicht eingerichtet"}.`,
+      ),
+    (err) =>
+      console.error(
+        `Formular "${entry.form}" von ${entry.page} gespeichert, Mail fehlgeschlagen: ${err.message}`,
+      ),
   );
 }
 
