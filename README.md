@@ -47,7 +47,7 @@ Port 3002, eingerichtet mit `server/setup-app.sh elfin-website 3002 <domain>` (s
 
 ```
 NOINDEX=1                              # nur solange die Seite Vorschau ist
-FORM_RECIPIENT=joschua.fassbender@elfin.works   # mehrere durch Komma
+FORM_RECIPIENT=service@elfin.works   # mehrere durch Komma
 MAIL_FROM=website@elfin.works          # Absender-Postfach in Microsoft 365
 M365_TENANT_ID=…
 M365_CLIENT_ID=…
