@@ -40,6 +40,7 @@ Der Push auf `main` startet GitHub Actions: prüfen, bauen, auf den Server laden
 - **Keine Event-Seiten:** die 11 leeren Eventin-Seiten (`/events/…`, `/etn_category/`) sind weggelassen.
 - **Suche:** zeigt Titel und Datum der Treffer, ohne Autor und Kategorie (die Autorenseiten gibt es nicht mehr).
 - **Datenschutzerklärung (EN/DE)** ist an den neuen Stand angepasst (Hetzner statt IONOS/WordPress, keine Cookies, kein Analytics, Microsoft 365 für Formular-Mails).
+- **Zwei Live-Fehler behoben:** Der DE-Beitrag `/de/kohlenstoffbuchhaltung-und-mrv-partner/` hat einen Seitentitel (live: „-“). Der Sprachumschalter verbindet `/focus/sustainability-handprint/` und `/de/sustainability-handprint/` (live: DE → `/science-based-targets/`, EN → `/de/`).
 
 ## Server
 
