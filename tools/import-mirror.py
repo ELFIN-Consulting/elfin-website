@@ -77,16 +77,22 @@ def drop_scripts(html: str, keep_wp_i18n: bool) -> str:
 
 def background_images(html: str) -> str:
     """WP Rocket laedt CSS-Hintergruende per JS (rocket_pairs). Wir binden sie fest ein."""
-    m = re.search(r"const rocket_pairs = (\[.*?\]);", html, re.S)
-    rules = [p["style"] for p in json.loads(m.group(1))] if m else []
-    for sid in ("wpr-lazyload-bg-container", "wpr-lazyload-bg-exclusion"):
-        html = re.sub(rf'<style id="{sid}">.*?</style>\s*', "", html, flags=re.S)
-    nostyle = re.search(r'<style id="wpr-lazyload-bg-nostyle">(.*?)</style>', html, re.S)
-    css = (nostyle.group(1) if nostyle else "") + "".join(rules)
-    block = f'<style id="background-images">{css}</style>'
-    if nostyle:
-        return html.replace(nostyle.group(0), block)
-    return html.replace("</head>", block + "\n</head>", 1) if css else html
+    rules: list[str] = []
+    # "exclusion" = Bilder oberhalb der Falz (sofort geladen), "nostyle" = Fallback ohne JS
+    for sid in ("wpr-lazyload-bg-exclusion", "wpr-lazyload-bg-container", "wpr-lazyload-bg-nostyle"):
+        m = re.search(rf'(?:<noscript>)?<style id="{sid}">(.*?)</style>(?:</noscript>)?\s*', html, re.S)
+        if m:
+            rules += re.findall(r"[^{}]+\{[^{}]*\}", m.group(1))
+            html = html.replace(m.group(0), "", 1)
+    decoder = json.JSONDecoder()
+    for name in ("rocket_pairs", "rocket_excluded_pairs"):
+        m = re.search(rf"const {name} = ", html)
+        if m:
+            rules += [p["style"] for p in decoder.raw_decode(html, m.end())[0] if p.get("style")]
+    css = "".join(dict.fromkeys(r.strip() for r in rules))  # doppelte Regeln einmal
+    if not css:
+        return html
+    return html.replace("</head>", f'<style id="background-images">{css}</style>\n</head>', 1)
 
 
 def lazy_media(html: str) -> str:
