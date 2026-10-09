@@ -9,7 +9,7 @@
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
-import { sendSubmission } from "./mail.js";
+import { sendChecklist, sendSubmission } from "./mail.js";
 
 const MAX_BODY = 32 * 1024;
 const CF7_PREFIX = "/wp-json/contact-form-7/v1/contact-forms/";
@@ -23,7 +23,7 @@ const TEXT = {
     sent: "Your message has been sent!",
     failed: "Your message could not be sent. Please check your entries.",
     tooMany: "Too many messages. Please try again later.",
-    cf7Sent: "Thank you for your message. It has been sent.",
+    cf7Sent: "Thank you! The checklist is on its way to your inbox.",
     cf7Invalid: "One or more fields have an error. Please check and try again.",
     required: "Please fill out this field.",
     email: "Please enter an email address.",
@@ -35,7 +35,7 @@ const TEXT = {
     failed:
       "Ihre Nachricht konnte nicht versendet werden. Bitte prüfen Sie Ihre Eingaben.",
     tooMany: "Zu viele Nachrichten. Bitte versuchen Sie es später noch einmal.",
-    cf7Sent: "Vielen Dank für Ihre Nachricht. Sie wurde gesendet.",
+    cf7Sent: "Vielen Dank! Die Checkliste ist auf dem Weg in Ihr Postfach.",
     cf7Invalid:
       "Ein oder mehrere Felder sind fehlerhaft. Bitte überprüfen Sie Ihre Eingaben.",
     required: "Bitte füllen Sie dieses Feld aus.",
@@ -240,6 +240,13 @@ async function handleCf7(req, res, pathname) {
     lang,
     fields: { Name: get("you-name"), "E-Mail": get("email") },
   });
+  // Checkliste direkt an die angegebene Adresse (Entscheidung 09.10.: ohne Double-Opt-in;
+  // Missbrauch begrenzt das Limit von 5 Einsendungen pro 10 Minuten und IP)
+  sendChecklist({ name: get("you-name"), email: get("email"), lang }).then(
+    (sent) => sent && console.log("EcoVadis-Checkliste verschickt."),
+    (err) =>
+      console.error(`EcoVadis-Checkliste nicht verschickt: ${err.message}`),
+  );
   return sendJson(res, 200, {
     ...base,
     status: "mail_sent",

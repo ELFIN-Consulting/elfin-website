@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildMessage, mailConfig, sendSubmission } from "../src/mail.js";
+import {
+  buildChecklistMessage,
+  buildMessage,
+  mailConfig,
+  sendSubmission,
+} from "../src/mail.js";
 
 test("ohne vollständige Einstellungen wird nichts versendet", async () => {
   const env = { FORM_RECIPIENT: "a@example.com" };
@@ -35,4 +40,26 @@ test("Mail: Klartext, Antwort an die einsendende Person, mehrere Empfänger", ()
     { emailAddress: { address: "erika@example.com" } },
   ]);
   assert.equal(msg.toRecipients.length, 2);
+});
+
+test("Checkliste: PDF im Anhang, an die anfordernde Person, Antwort an ELFIN", async () => {
+  const pdf = Buffer.from("%PDF-1.7\n% Test\n");
+  const msg = buildChecklistMessage(
+    { name: "Erika\nMuster", email: "erika@example.com", lang: "de" },
+    ["service@elfin.works"],
+    pdf,
+  );
+  assert.match(msg.subject, /EcoVadis/);
+  assert.match(msg.body.content, /^Guten Tag Erika Muster,/);
+  assert.deepEqual(msg.toRecipients, [
+    { emailAddress: { address: "erika@example.com" } },
+  ]);
+  assert.deepEqual(msg.replyTo, [
+    { emailAddress: { address: "service@elfin.works" } },
+  ]);
+  assert.equal(msg.attachments[0].contentType, "application/pdf");
+  assert.equal(
+    Buffer.from(msg.attachments[0].contentBytes, "base64").length,
+    pdf.length,
+  );
 });
