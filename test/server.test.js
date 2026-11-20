@@ -47,6 +47,22 @@ test("Adresse ohne Schrägstrich leitet weiter wie WordPress", async () => {
   assert.equal(res.headers.get("location"), "/services/?x=1");
 });
 
+test("alte WordPress-Adressen ohne Gegenstück leiten dauerhaft weiter", async () => {
+  for (const [from, to] of [
+    ["/events/", "/insights/"],
+    ["/etn-schedule/day-1-foundations/", "/insights/"],
+    ["/events-2/my-bookings/", "/insights/"],
+    ["/de/etn/", "/de/neuigkeiten-einblicke/"],
+    ["/datenschutzerklaerung/", "/de/datenschutzerklaerung/"],
+    ["/page-sitemap.xml", "/sitemap.xml"],
+  ]) {
+    const res = await get(from);
+    assert.equal(res.status, 301, from);
+    assert.equal(res.headers.get("location"), to, from);
+  }
+  assert.equal((await get("/eventsx/")).status, 404);
+});
+
 test("unbekannte Seite liefert die 404-Seite der Sprache", async () => {
   const en = await get("/gibt-es-nicht/");
   assert.equal(en.status, 404);

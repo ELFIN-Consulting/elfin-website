@@ -1,0 +1,44 @@
+# Erreichbarkeit der Live-Seite pruefen, ohne extra Monitoring-Konto.
+# Schlaegt ein Lauf fehl, schickt GitHub eine Mail an die Person, die diese Datei zuletzt geaendert hat
+# (Einstellung: GitHub → Settings → Notifications → Actions → "Only notify for failed workflows").
+# Alle 30 Minuten statt 15: wird das Repo privat, zaehlen die Laufminuten gegen das Freikontingent.
+# Hinweis: GitHub pausiert Zeitplaene in Repos ohne Commit seit 60 Tagen; dann im Tab Actions wieder aktivieren.
+name: Health check
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Seite, /health und Zertifikat pruefen
+        shell: bash
+        run: |
+          set -euo pipefail
+          site=https://elfin-consulting.com
+          fail=0
+          check() { # check <pfad> <erwarteter Status>
+            code=$(curl -s -o /dev/null -w '%{http_code}' --retry 2 --retry-delay 20 --retry-all-errors -m 20 "$site$1" || true)
+            echo "$1 -> $code"
+            [ "$code" = "$2" ] || { echo "::error::$site$1 liefert $code statt $2"; fail=1; }
+          }
+          check /health 200
+          check / 200
+          check /de/ 200
+          check /contact/ 200
+          curl -s -m 20 "$site/health" | grep -q '"status":"ok"' || { echo "::error::/health meldet nicht ok"; fail=1; }
+          www=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -m 20 https://www.elfin-consulting.com/ || true)
+          echo "www -> $www"
+          [ "$www" = "301 $site/" ] || { echo "::error::www leitet nicht auf $site/ um ($www)"; fail=1; }
+          end=$(echo | openssl s_client -connect elfin-consulting.com:443 -servername elfin-consulting.com 2>/dev/null | openssl x509 -noout -enddate | cut -d= -f2)
+          days=$(( ( $(date -d "$end" +%s) - $(date +%s) ) / 86400 ))
+          echo "Zertifikat gueltig bis $end ($days Tage)"
+          [ "$days" -ge 14 ] || { echo "::error::Zertifikat laeuft in $days Tagen ab (certbot renew pruefen)"; fail=1; }
+          echo "Version: $(curl -s -m 20 $site/version.json | tr -d '\n ')"
+          exit $fail
