@@ -56,6 +56,28 @@ function send(res, status, body, headers = {}) {
   res.end(body);
 }
 
+/**
+ * Alte WordPress-Adressen ohne Gegenstück (Eventin-Reste, verwaiste Datenschutz-URL):
+ * 301 auf die passende Seite statt 404. Liefert das Ziel oder null.
+ */
+export function legacyRedirect(pathname) {
+  if (pathname === "/datenschutzerklaerung/")
+    return "/de/datenschutzerklaerung/";
+  // Yoast-Teil-Sitemaps, die evtl. noch in der Search Console stehen
+  if (/^\/(page|post|etn|etn-schedule)-sitemap\.xml$/.test(pathname))
+    return "/sitemap.xml";
+  if (/^\/de\/(etn|events)(\/|$)/.test(pathname))
+    return "/de/neuigkeiten-einblicke/";
+  if (
+    /^\/(etn|etn-schedule|etn-tags|etn_category|events|events-2)(\/|$)/.test(
+      pathname,
+    )
+  ) {
+    return "/insights/";
+  }
+  return null;
+}
+
 /** Datei unter public/ finden; null, wenn es sie nicht gibt oder der Pfad hinausführt. */
 async function resolveFile(publicDir, pathname) {
   const relative = normalize(pathname).replace(/^[/\\]+/, "");
@@ -158,6 +180,10 @@ export function createApp({ publicDir = DEFAULT_PUBLIC_DIR } = {}) {
         });
       }
 
+      const legacy = legacyRedirect(pathname);
+      if (legacy) {
+        return send(res, 301, "", { location: legacy });
+      }
       const hit = await resolveFile(publicDir, pathname);
       if (!hit) {
         return notFound(publicDir, req, res, pathname);
